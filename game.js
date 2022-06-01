@@ -1,5 +1,11 @@
 //const { default: kaboom } = require("kaboom");
 // <script src="https://unpkg.com/kaboom/dist/kaboom.js"></script>
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 kaboom({
   global: true,
   fullscreen: true,
@@ -30,10 +36,12 @@ loadSprite('blue-brick', 'blue-brick.png')
 loadSprite('steel', 'steel.png')
 loadSprite('lose', 'lose.png')
 loadSprite('win', 'win.png')
+loadSprite('bullet', 'bullet.png')
+loadSprite('gun-shroom', 'gun-shroom.png')
 
 
 
-scene('game', ({ adult, level, score }) => {
+scene('game', ({ adult, level, score, ammo, HAS_GUN }) => {
   layers(['bg', 'obj', 'ui'], 'obj')
 
 
@@ -57,29 +65,48 @@ scene('game', ({ adult, level, score }) => {
     ],
     [
       '                                             ',
-      '                      %          %           ',
+      '                      %          &           ',
       's    s                                       ',
       's    s                                       ',
       's    s         sss@@sss                ^     ',
-      's    s                    %       s   N      ',
-      's    s                            s          ',
-      's    s             !f             s@@@@ss    ',
+      's    s                    %       s   -+     ',
+      's    s                            s   ()     ',
+      's    s             !f             s@@@()s    ',
       's    s             ss%       s               ',
       's    s           ss       s  s               ',
       's                    s    s  s               ',
       's                    s    s         f        ',
-      's                    @   s@  @@@@@@@@        ',
+      's                  ! @   s@  @@@@@@@@        ',
       '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @@@@@@'
 
+    ],
+    [
+      '    sss                                      ',
+      '    s                                        ',
+      's   ss                                       ',
+      's     s                                      ',
+      's      ss      ssssss                       @',
+      's      s             ss                   @s@',
+      's    sss            ss                 @@ss @',
+      's    s@sss         !f sss            sss@@@@@',
+      's      ss        f s             ssssss@@@@@@',
+      's   &    s       s@s&            ss          ',
+      's        sss    s@                 s         ',
+      's              s@@@                s     N   ',
+      's    f     f   fs s @ f        s             ',
+      '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+
     ]
+
   ]
   const levelCfg = {
     width: 20,
     height: 20,
-    '=': [sprite('brick'), solid()],
+    '=': [sprite('brick'), solid(), 'wall'],
     '$': [sprite('coin'), solid(), 'coin'],
     '%': [sprite('surprise'), solid(), 'coin-surprise'],
     '*': [sprite('surprise'), solid(), 'mushroom-surprise'],
+    '&': [sprite('surprise'), solid(), 'gun-shroom-surprise'],
     '}': [sprite('unboxed'), solid()],
     '^': [sprite('evil-shroom'), solid(), 'dangerous', body()],
     '(': [sprite('pipe-bottom-left'), 'wall', solid(), scale(0.5)],
@@ -87,11 +114,12 @@ scene('game', ({ adult, level, score }) => {
     '-': [sprite('pipe-top-left'), solid(), scale(0.5), 'pipe'],
     '+': [sprite('pipe-top-right'), solid(), scale(0.5), 'pipe'],
     '#': [sprite('mushroom'), solid(), 'mushroom', body()],
+    'g': [sprite('gun-shroom'), solid(), 'gun-shroom', body()],
     'N': [sprite('node5'), solid(), 'win'],
     '@': [sprite('blue-brick'), solid(), 'wall', scale(0.5)],
     's': [sprite('steel'), solid(), 'wall', scale(0.5)],
     '!': [sprite('blue-shroom'), solid(), 'dangerous2', body(), scale(0.5)],
-    'f': [sprite('flower'),'flower', solid()],
+    'f': [sprite('flower'), 'flower', solid()],
 
 
   }
@@ -104,6 +132,8 @@ scene('game', ({ adult, level, score }) => {
   let ENEMY_SPEED2 = 30;
   let isjumping = false;
   const FALL_DEATH = 1500;
+  //let HAS_GUN = false;
+  //let AMMO = ammo;
 
   const gameLevel = addLevel(maps[level], levelCfg)
 
@@ -117,10 +147,18 @@ scene('game', ({ adult, level, score }) => {
   ])
 
   const levelSign = add([
-    text(`level: ${level+1}`),
+    text(`level: ${level + 1}`),
     pos(100, 6),
     layer('ui')
   ])
+
+  const ammoSign = add([
+    text(`ammo: ${ammo}`),
+    pos(200, 6),
+    layer('ui')
+  ])
+
+
   function big() {
     let timer = 0
     let isBig = false;
@@ -162,6 +200,8 @@ scene('game', ({ adult, level, score }) => {
     big(),
     origin('bot')
   ])
+
+
   if (adult) {
     player.biggify(6)
   }
@@ -170,36 +210,27 @@ scene('game', ({ adult, level, score }) => {
   action('mushroom', (mush) => {
     mush.move(MUSH_SPEED, 0)
   })
-/*
-  player.on('collides', (obj) => {
-    if (obj.is('flower')) {
-      gameLevel.spawn('!', obj.gridPos.sub(10, 1))
-      gameLevel.spawn('!', obj.gridPos.sub(50, 1))
-      gameLevel.spawn('!', obj.gridPos.sub(400, 1))
-      destroy(obj)
+  action('gun-shroom', (mush) => {
+    mush.move(MUSH_SPEED, 0)
+  })
+
+  player.collides("flower", (obj) => {
+    destroy(obj)
+    for (let i = 0; i < (getRandomInt(1, 2)); i++) {
+      add([sprite('blue-shroom'), scale(0.5), solid(), 'dangerous2', body(), pos(getRandomInt(50, 700), getRandomInt(10, 250))])
+    }
+    for (let i = 0; i < (getRandomInt(1, 2)); i++) {
+      add([sprite('evil-shroom'), solid(), 'dangerous', body(), pos(getRandomInt(50, 700), getRandomInt(10, 250))])
     }
   })
-*/
 
-player.collides("flower", (obj) => {
-  destroy(obj)
-  add([sprite('blue-shroom'), solid(), 'dangerous2', body(), pos(700,100)])
-  add([sprite('blue-shroom'), solid(), 'dangerous2', body(), pos(400,30)])
-    /*
-    sprite('blue-shroom'), solid(), 'dangerous2', body(), pos(500,100)
+  player.collides("flower2", (obj) => {
+    destroy(obj)
+    add([sprite('blue-shroom'), solid(), 'dangerous2', body(), pos(700, 100)])
+    add([sprite('blue-shroom'), solid(), 'dangerous2', body(), pos(400, 30)])
 
-    sprite('blue-shroom'), solid(), 'dangerous2', body(), pos(700,100)
-    */
-  
-})
-/*
-  player.collides('flower', (flo) => {
-
-    destroy(flo)
-    gameLevel.spawn('!', gridPos.sub(10, 50))
-    gameLevel.spawn('!', gridPos.sub(-50, 1))
   })
-*/
+
   player.on('headbump', (obj) => {
     if (obj.is('coin-surprise')) {
       gameLevel.spawn('$', obj.gridPos.sub(0, 1))
@@ -211,24 +242,42 @@ player.collides("flower", (obj) => {
       destroy(obj)
       gameLevel.spawn('}', obj.gridPos.sub(0, 0))
     }
+    if (obj.is('gun-shroom-surprise')) {
+      gameLevel.spawn('g', obj.gridPos.sub(0, 1))
+      destroy(obj)
+      gameLevel.spawn('}', obj.gridPos.sub(0, 0))
+    }
+
   })
   action('dangerous2', (d) => {
     d.move(-ENEMY_SPEED2, 0)
+    d.collides('bullet', () => {
+      destroy(d)
+    })
 
   })
 
   action('dangerous', (d2) => {
     d2.move(-ENEMY_SPEED, 0)
-    /*
-        d2.collides('wall', () => {
-          ENEMY_SPEED = -ENEMY_SPEED
-        })
-    */
+    d2.collides('bullet', () => {
+      destroy(d2)
+    })
 
   })
+  let BULLET_SPEED = 500;
+  action('bullet', (b) => {
+    b.move(BULLET_SPEED, 0)
+    if (b.pos.x > 1000) {
+      destroy(b)
+    }
+    b.collides('wall', () => {
+      destroy(b)
+    })
+  })
+
 
   player.collides('dangerous', (dang) => {
-    if (isjumping) {
+    if (isjumping || !player.grounded()) {
       destroy(dang)
     } else if (!adult && !isjumping) {
       go('lose', { score: scoreLabel.value })
@@ -238,7 +287,7 @@ player.collides("flower", (obj) => {
     }
   })
   player.collides('dangerous2', (dang) => {
-    if (isjumping) {
+    if (isjumping || !player.grounded()) {
       destroy(dang)
     } else if (!adult && !isjumping) {
       go('lose', { score: scoreLabel.value })
@@ -253,7 +302,9 @@ player.collides("flower", (obj) => {
       go('game', {
         adult: adult,
         level: (level + 1),
-        score: scoreLabel.value
+        score: scoreLabel.value,
+        ammo: ammo,
+        HAS_GUN: HAS_GUN
       })
     })
   })
@@ -271,10 +322,27 @@ player.collides("flower", (obj) => {
     player.biggify(6)
   })
 
+  player.collides('gun-shroom', (mush) => {
+    destroy(mush)
+    ammo = ammo + 2;
+    ammoSign.text = (`ammo: ${ammo}`)
+    HAS_GUN = true;
+  })
+
   player.collides('coin', (co) => {
     destroy(co)
+    add([sprite('evil-shroom'), solid(), 'dangerous', body(), pos(getRandomInt(50, 700), getRandomInt(10, 250))])
     scoreLabel.value++
     scoreLabel.text = (`score: ${scoreLabel.value}`)
+  })
+  keyPress('space', () => {
+    // player.gridPos.sub(1, 0)
+    if (HAS_GUN && ammo > 0) {
+      add([sprite('bullet'), solid(), scale(0.5), 'bullet', pos((parseInt(player.pos['x'])), (parseInt(player.pos['y'])) - 15)])
+      ammo--
+      ammoSign.text = (`ammo: ${ammo}`)
+    }
+
   })
 
   keyDown('left', () => {
@@ -306,14 +374,14 @@ player.collides("flower", (obj) => {
 })
 
 scene('lose', ({ score }) => {
-  add([sprite('lose'), pos((width() / 2)-300,100), scale(2)])
+  add([sprite('lose'), pos((width() / 2) - 300, 100), scale(2)])
   add([text(`(score: ${score})`, 30), origin('center'), pos(width() / 2, height() / 2)])
 })
 
 scene('win', ({ score }) => {
-  add([sprite('win'), pos((width() / 2)-300,100), scale(2)])
+  add([sprite('win'), pos((width() / 2) - 300, 100), scale(2)])
   add([text(`(score(kisses at home): ${score})`, 30), origin('center'), pos(width() / 2, height() / 2)])
 })
 
-start('game', { adult: false, level: 0, score: 0 })
+start('game', { adult: false, level: 0, score: 0, ammo: 0, HAS_GUN: false })
 
